@@ -11,7 +11,7 @@ entity alu is
     );
 end alu;
 
-architecture behavioral of alu is
+architecture behavioural of alu is
     component carry_ripple_adder
         port (
             a    : in  std_logic_vector (3 downto 0);
@@ -29,8 +29,11 @@ architecture behavioral of alu is
     signal adder_carry_out   : std_logic;
     signal operation_type    : std_logic; 
     signal sub               : std_logic;
+    signal diff		     : std_logic_vector (3 downto 0);
+    signal diff_carry	     : std_logic;
 
 begin
+
     -- Make sense from control bits
     operation_type   <=   opcode(1);   -- Are we doing logical or arithmetic operation?
     sub              <=   opcode(0);   -- Are we doing addition/NAND or subtraction/NOR?
@@ -46,11 +49,21 @@ begin
     adder_instance: carry_ripple_adder
         port map(
             a => n,
-            b => m_inverted,
-            ci => '1',
+            b => m,
+            ci => '0',
             s => adder_result,
             co => adder_carry_out
         );
+
+    -- Subtraction
+    adder_instance2: carry_ripple_adder
+	port map(
+	    a => n,
+	    b => m_inverted,
+	    ci => '1',
+	    s => diff,
+	    co => diff_carry
+	);
         
     -- Logical NAND operation
     nand_result(0) <= not m(0) and n(0);
@@ -65,12 +78,15 @@ begin
     nor_result(3) <= not m(3) or n(3);
 
     -- Select output based on which operation was requested
-    d <=   nand_result when opcode ="10" else
-           nor_result when opcode ="11" else
-           adder_result;
+    d <=   adder_result when opcode ="00" else
+	   diff when opcode ="01" else
+	   n nand m when opcode ="10" else
+           n nor m when opcode ="11" else
+           (others => '0');
 
     -- Carry out bit
-    cout <= (adder_carry_out xor sub) when operation_type = '0' else
+    cout <= adder_carry_out when opcode ="00" else
+	    (diff_carry xor sub) when opcode ="01" else
            '0';
 end;
 
